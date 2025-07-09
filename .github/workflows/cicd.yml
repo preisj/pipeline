@@ -1,0 +1,62 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests with coverage
+        run: npm test -- --coverage
+
+  deploy-hml:
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Deploy to Homologação
+        uses: appleboy/ssh-action@master
+        with:
+          host: 177.44.248.77
+          username: univates
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd ~/app
+            git pull
+            docker-compose -f docker-compose.hml.yml down
+            docker-compose -f docker-compose.hml.yml up -d --build
+
+  deploy-prd:
+    if: contains(github.event.head_commit.message, '[deploy-prod]')
+    needs: deploy-hml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Deploy to Produção
+        uses: appleboy/ssh-action@master
+        with:
+          host: 177.44.248.77
+          username: univates
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd ~/app
+            git pull
+            docker-compose -f docker-compose.prd.yml down
+            docker-compose -f docker-compose.prd.yml up -d --build
