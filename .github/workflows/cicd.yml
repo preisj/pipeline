@@ -22,7 +22,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-          --mount type=bind,source=${{ github.workspace }}/init.sql,target=/docker-entrypoint-initdb.d/init.sql,readonly
 
     steps:
       - uses: actions/checkout@v3
@@ -51,6 +50,12 @@ jobs:
           echo "PGDATABASE=app" >> .env.test
           echo "PGPORT=5432" >> .env.test
           echo "PORT=3000" >> .env.test
+
+
+      - name: Executar init.sql
+        run: |
+          sudo apt-get install -y postgresql-client
+          psql -h localhost -U postgres -d app -f init.sql
 
       - name: Build
         run: npm run build
