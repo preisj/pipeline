@@ -52,10 +52,14 @@ jobs:
           echo "PORT=3000" >> .env.test
 
 
-      - name: Executar init.sql
+      - name: Instalar cliente e executar init.sql
         run: |
           sudo apt-get install -y postgresql-client
-          psql -h localhost -U postgres -d app -f init.sql
+          for i in {1..10}; do
+            pg_isready -h localhost -p 5432 && break
+            sleep 2
+          done
+          PGPASSWORD=postgres psql -h localhost -U postgres -d app -f init.sql
 
       - name: Build
         run: npm run build
