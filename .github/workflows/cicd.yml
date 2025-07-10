@@ -22,6 +22,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+          --mount type=bind,source=${{ github.workspace }}/init.sql,target=/docker-entrypoint-initdb.d/init.sql,readonly
 
     steps:
       - uses: actions/checkout@v3
