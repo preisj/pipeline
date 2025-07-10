@@ -20,7 +20,7 @@ router.put("/users/:id", updateUser);
 router.delete("/users/:id", deleteUser);
 
 router.post("/tasks", createTask);
-router.get("/tasks", getTasks);
+router.get("/tasks", listTasks);
 router.put("/tasks/:id", updateTask);
 router.delete("/tasks/:id", deleteTask);
 
