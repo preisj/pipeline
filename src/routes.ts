@@ -6,7 +6,7 @@ import {
   deleteUser,
 } from "./controllers/userController";
 
-import { createTask, getTasks, updateTask, deleteTask } from "./controllers/taskController";
+import { createTask, listTasks, updateTask, deleteTask } from "./controllers/taskController";
 
 const router = Router();
 
