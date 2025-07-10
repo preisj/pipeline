@@ -1,4 +1,8 @@
 import { Pool } from "pg";
+import dotenv from "dotenv";
+
+// Carrega o .env correspondente ao ambiente
+dotenv.config({ path: `.env.${process.env.NODE_ENV || "dev"}` });
 
 export const pool = new Pool({
   host: process.env.PGHOST,
@@ -12,5 +16,7 @@ pool.connect()
   .then(() => console.log("🎉 Conectado ao banco de dados"))
   .catch((err) => {
     console.error("❌ Erro ao conectar no banco:", err);
-    process.exit(1);
+    // Remova o process.exit(1) para não matar os testes
+    // process.exit(1);
   });
+
