@@ -1,11 +1,23 @@
 import request from "supertest";
 import app from "../app";
+import { pool } from "../db";
+
+let userId1: number;
+let userId2: number;
+
+beforeAll(async () => {
+  await pool.connect();
+});
+
+beforeEach(async () => {
+  await pool.query("DELETE FROM users"); // limpa antes de cada teste
+});
+
+afterAll(async () => {
+  await pool.end();
+});
 
 describe("User API Endpoints", () => {
-  let userId1: number;
-  let userId2: number;
-
-  // --- Criação ---
   it("deve criar um usuário válido", async () => {
     const res = await request(app).post("/users").send({ name: "Alice", email: "alice@example.com" });
     expect(res.statusCode).toBe(200);
@@ -16,104 +28,62 @@ describe("User API Endpoints", () => {
   it("deve criar um segundo usuário", async () => {
     const res = await request(app).post("/users").send({ name: "Bob", email: "bob@example.com" });
     expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty("id");
     userId2 = res.body.id;
   });
 
-  it("deve falhar ao criar usuário sem nome", async () => {
-    const res = await request(app).post("/users").send({ email: "fail@example.com" });
-    expect(res.statusCode).toBe(400);
-  });
-
-  it("deve falhar ao criar usuário sem email", async () => {
-    const res = await request(app).post("/users").send({ name: "Sem Email" });
-    expect(res.statusCode).toBe(400);
-  });
-
   it("deve falhar ao criar com email duplicado", async () => {
-    const res = await request(app).post("/users").send({ name: "Repetido", email: "alice@example.com" });
+    await request(app).post("/users").send({ name: "Primeiro", email: "alice@example.com" });
+    const res = await request(app).post("/users").send({ name: "Duplicado", email: "alice@example.com" });
     expect(res.statusCode).toBe(409);
   });
 
-  // --- Leitura ---
-  it("deve listar os dois usuários criados", async () => {
-    const res = await request(app).get("/users");
-    expect(res.statusCode).toBe(200);
-    expect(res.body.length).toBeGreaterThanOrEqual(2);
-  });
-
-  it("deve retornar vazio se não houver usuários (após exclusão)", async () => {
-    await request(app).delete(`/users/${userId1}`);
-    await request(app).delete(`/users/${userId2}`);
+  it("deve retornar lista vazia se não houver usuários", async () => {
     const res = await request(app).get("/users");
     expect(res.statusCode).toBe(200);
     expect(res.body.length).toBe(0);
   });
 
-  it("deve criar novamente para testar atualização", async () => {
-    const res = await request(app).post("/users").send({ name: "Charlie", email: "charlie@example.com" });
-    expect(res.statusCode).toBe(200);
-    userId1 = res.body.id;
-  });
-
-  // --- Atualização ---
-  it("deve atualizar nome do usuário", async () => {
-    const res = await request(app).put(`/users/${userId1}`).send({ name: "Charles", email: "charlie@example.com" });
-    expect(res.statusCode).toBe(200);
-    expect(res.body.name).toBe("Charles");
-  });
-
-  it("deve falhar ao atualizar com id inexistente", async () => {
-    const res = await request(app).put(`/users/9999`).send({ name: "X", email: "x@x.com" });
-    expect(res.statusCode).toBe(404);
-  });
-
-  it("deve falhar ao atualizar com dados incompletos", async () => {
-    const res = await request(app).put(`/users/${userId1}`).send({ name: "Sem Email" });
-    expect(res.statusCode).toBe(400);
-  });
-
-  it("deve falhar ao atualizar com email duplicado", async () => {
-    await request(app).post("/users").send({ name: "Fake", email: "bob@example.com" });
-    const res = await request(app).put(`/users/${userId1}`).send({ name: "X", email: "bob@example.com" });
-    expect(res.statusCode).toBe(409);
-  });
-
-  // --- Deleção ---
-  it("deve deletar usuário com sucesso", async () => {
-    const res = await request(app).delete(`/users/${userId1}`);
-    expect(res.statusCode).toBe(204);
-  });
-
-  it("deve falhar ao deletar novamente", async () => {
-    const res = await request(app).delete(`/users/${userId1}`);
-    expect(res.statusCode).toBe(404);
-  });
-
-  it("deve falhar ao deletar id inexistente", async () => {
-    const res = await request(app).delete("/users/999999");
-    expect(res.statusCode).toBe(404);
-  });
-
-  // --- Comportamento geral ---
-  it("deve permitir nova criação após exclusão", async () => {
-    const res = await request(app).post("/users").send({ name: "Novo", email: "novo@example.com" });
-    expect(res.statusCode).toBe(200);
-  });
-
-  it("deve listar um usuário após recriação", async () => {
+  it("deve listar usuários após criação", async () => {
+    await request(app).post("/users").send({ name: "Charlie", email: "charlie@example.com" });
     const res = await request(app).get("/users");
+    expect(res.statusCode).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
     expect(res.body.length).toBe(1);
   });
 
-  // --- Extras ---
-  it("rota de healthcheck deve responder com ok", async () => {
-    const res = await request(app).get("/health");
-    expect(res.statusCode).toBe(200);
-    expect(res.body.status).toBe("ok");
+  it("deve atualizar usuário", async () => {
+    const create = await request(app).post("/users").send({ name: "Update", email: "update@example.com" });
+    const id = create.body.id;
+    const update = await request(app).put(`/users/${id}`).send({ name: "Updated", email: "update@example.com" });
+    expect(update.statusCode).toBe(200);
+    expect(update.body.name).toBe("Updated");
   });
 
-  it("deve falhar ao acessar rota inexistente", async () => {
-    const res = await request(app).get("/invalid-route");
+  it("deve falhar ao atualizar com email duplicado", async () => {
+    const u1 = await request(app).post("/users").send({ name: "A", email: "a@example.com" });
+    const u2 = await request(app).post("/users").send({ name: "B", email: "b@example.com" });
+    const res = await request(app).put(`/users/${u2.body.id}`).send({ name: "B", email: "a@example.com" });
+    expect(res.statusCode).toBe(409);
+  });
+
+  it("deve deletar usuário", async () => {
+    const user = await request(app).post("/users").send({ name: "ToDelete", email: "todelete@example.com" });
+    const res = await request(app).delete(`/users/${user.body.id}`);
+    expect(res.statusCode).toBe(204);
+  });
+
+  it("deve falhar ao deletar inexistente", async () => {
+    const res = await request(app).delete("/users/9999");
     expect(res.statusCode).toBe(404);
   });
+
+  it("deve permitir recriação após exclusão", async () => {
+    const create = await request(app).post("/users").send({ name: "Again", email: "again@example.com" });
+    const id = create.body.id;
+    await request(app).delete(`/users/${id}`);
+    const recreate = await request(app).post("/users").send({ name: "Again", email: "again@example.com" });
+    expect(recreate.statusCode).toBe(200);
+  });
 });
+

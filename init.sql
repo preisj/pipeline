@@ -4,7 +4,10 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL UNIQUE
 );
 
-INSERT INTO users (name, email) VALUES
-  ('Alice', 'alice@example.com'),
-  ('Bob', 'bob@example.com')
-ON CONFLICT DO NOTHING;
+CREATE TABLE tarefas (
+  id SERIAL PRIMARY KEY,
+  titulo VARCHAR(255) NOT NULL,
+  descricao TEXT,
+  concluido BOOLEAN DEFAULT FALSE,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+);
